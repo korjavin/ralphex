@@ -36,7 +36,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: "v2.11.1"
+          version: latest
 
       - name: submit coverage
         uses: codecov/codecov-action@v5
