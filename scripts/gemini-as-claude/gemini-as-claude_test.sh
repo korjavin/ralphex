@@ -451,22 +451,6 @@ fi
 create_mock_gemini > /dev/null
 
 # ---------------------------------------------------------------------------
-# test: GEMINI_VERBOSE invalid value warns and defaults to 0
-# ---------------------------------------------------------------------------
-echo "test: GEMINI_VERBOSE invalid value"
-
-stderr_out=$(MOCK_STDOUT_FILE="$TMPDIR_TEST/minimal_events.txt" \
-    GEMINI_VERBOSE=foo \
-    PATH="$TMPDIR_TEST:$PATH" \
-    bash "$WRAPPER" -p "test prompt" 2>&1 >/dev/null)
-
-if echo "$stderr_out" | grep -q 'warning.*GEMINI_VERBOSE'; then
-    pass "invalid GEMINI_VERBOSE produces warning"
-else
-    fail "no warning for invalid GEMINI_VERBOSE" "stderr: $stderr_out"
-fi
-
-# ---------------------------------------------------------------------------
 # test: review adapter prepended for review prompts
 # ---------------------------------------------------------------------------
 echo "test: review adapter prepend"

@@ -11,7 +11,6 @@
 #
 # environment variables:
 #   GEMINI_MODEL         - model to use (passed as --model flag when set)
-#   GEMINI_VERBOSE       - set to 1 to include additional diagnostic output (default: 0)
 
 set -euo pipefail
 
@@ -38,12 +37,6 @@ fi
 
 # configurable via environment
 GEMINI_MODEL="${GEMINI_MODEL:-}"
-GEMINI_VERBOSE="${GEMINI_VERBOSE:-0}"
-
-if [[ "$GEMINI_VERBOSE" != "0" && "$GEMINI_VERBOSE" != "1" ]]; then
-    echo "warning: GEMINI_VERBOSE must be 0 or 1, got '$GEMINI_VERBOSE', defaulting to 0" >&2
-    GEMINI_VERBOSE=0
-fi
 
 # detect review prompts and prepend adapter text
 is_review_prompt=0
@@ -57,7 +50,7 @@ if [[ "$is_review_prompt" == "1" ]]; then
 fi
 
 # build gemini arguments
-gemini_args=("-p" "$prompt")
+gemini_args=("-y" "-p" "$prompt")
 [[ -n "$GEMINI_MODEL" ]] && gemini_args+=(--model "$GEMINI_MODEL")
 
 # temporary files for stderr capture and stdout piping.

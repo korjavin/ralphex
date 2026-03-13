@@ -139,7 +139,6 @@ claude_args =
 | Variable | Default | Description |
 |---|---|---|
 | `GEMINI_MODEL` | (gemini default) | Model to use with Gemini CLI |
-| `GEMINI_VERBOSE` | `0` | Set to `1` to include additional diagnostic output |
 
 ### How it works
 

@@ -18,7 +18,6 @@ claude_args =
 **Environment variables:**
 
 - `GEMINI_MODEL` — model to use (passed as `--model` flag when set)
-- `GEMINI_VERBOSE` — set to `1` to include additional diagnostic output (default: `0`)
 
 ## Testing
 
