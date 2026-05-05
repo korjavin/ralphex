@@ -970,6 +970,8 @@ Working examples are included:
 
 - [`scripts/codex-as-claude/codex-as-claude.sh`](https://github.com/umputun/ralphex/blob/master/scripts/codex-as-claude/codex-as-claude.sh) wraps codex to produce Claude-compatible events
 - [`scripts/copilot-as-claude/copilot-as-claude.sh`](https://github.com/umputun/ralphex/blob/master/scripts/copilot-as-claude/copilot-as-claude.sh) wraps GitHub Copilot CLI and translates its native JSONL stream into Claude-compatible events
+- [`scripts/gemini-as-claude/gemini-as-claude.sh`](https://github.com/umputun/ralphex/blob/master/scripts/gemini-as-claude/gemini-as-claude.sh) wraps Gemini CLI for the implementation slot
+- [`scripts/opencode/opencode-as-claude.sh`](https://github.com/umputun/ralphex/blob/master/scripts/opencode/opencode-as-claude.sh) wraps OpenCode CLI for the implementation slot, and `scripts/opencode/opencode-review.sh` is shipped alongside as a turn-key custom review script
 
 To use the included Copilot wrapper:
 
@@ -1008,6 +1010,27 @@ Provider-specific environment variables:
 - `CODEX_VERBOSE` - set to `1` to include command execution output in the stream (default: `0`, only agent messages are shown)
 
 See [custom providers documentation](https://github.com/umputun/ralphex/blob/master/docs/custom-providers.md) for a detailed guide on writing wrappers for other providers.
+
+### Swapping Implementation and Review Roles
+
+The default pairing is Claude for implementation and Codex for external review. The same mechanisms that replace Claude with another tool can also flip the roles, putting another tool in the implementation slot and Claude (or anything else) in the review slot. Combine `claude_command` with `external_review_tool = custom` and `custom_review_script`:
+
+```ini
+# in ~/.config/ralphex/config or .ralphex/config
+claude_command       = /path/to/scripts/codex-as-claude/codex-as-claude.sh
+external_review_tool = custom
+custom_review_script = /path/to/scripts/opencode/opencode-review.sh
+```
+
+The `claude_command` slot is documented above. The `custom_review_script` slot, including the script interface and expected output format, is documented in [Custom External Review](#custom-external-review).
+
+The repository ships a working custom review script at [`scripts/opencode/opencode-review.sh`](https://github.com/umputun/ralphex/blob/master/scripts/opencode/opencode-review.sh) that uses OpenCode CLI to produce review findings. Use it directly, or read it as a template when writing your own (for example, a `claude-as-review.sh` that calls Claude in the review slot).
+
+The wrappers under `scripts/codex-as-claude/`, `scripts/copilot-as-claude/`, `scripts/gemini-as-claude/`, and `scripts/opencode/` ship in the source tree but are not bundled with the binary. Vendor the one you need into your project (`.ralphex/scripts/`) or reference it from a checkout.
+
+**Log labels reflect the slot, not the underlying tool.** Phase output keeps the internal slot names (`claude execution`, `codex execution`) regardless of what `claude_command` and the external review tool resolve to at runtime. With a wrapper in place, "claude execution" means whatever `claude_command` points at.
+
+**Per-project config on feature branches.** If tool-swap configuration lives inside the project (`.ralphex/config`, scripts under `.ralphex/scripts/`), commit those files on the default branch before creating a feature branch. Otherwise the reviewer sees its own infrastructure as new in the feature branch, which can trigger `RALPHEX:TASK_FAILED` when project rules forbid modifying `.ralphex/`. Keeping the configuration in `~/.config/ralphex/` instead avoids that case entirely.
 
 ### Configurable VCS Backend
 
