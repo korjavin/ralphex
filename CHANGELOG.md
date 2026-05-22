@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.3.1 - 2026-05-22
+
+### New Features
+
+- Per-phase model selection for codex executor #357 @umputun
+
+### Improved
+
+- Reflect codex executor support in README header 15b35c7
+- Reflect codex executor support on landing page 88c3966
+
 ## v1.3.0 - 2026-05-21
 
 ### New Features
