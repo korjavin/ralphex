@@ -77,7 +77,8 @@ ralphex docs/plans/my-feature.md
 
 ralphex will create a branch, execute tasks, commit results, run multi-phase reviews, and move the plan to `completed/` when done.
 
-> **Note: Anthropic Agent SDK billing change on June 15, 2026**
+> [!WARNING]
+> **Anthropic Agent SDK billing change on June 15, 2026**
 >
 > Anthropic is moving `claude -p` / `claude --print`, Claude Agent SDK, and Claude Code GitHub Actions usage to a separate monthly Agent SDK credit pool for Claude subscription users. The default Claude mode in ralphex uses `claude --print` internally, so unattended ralphex runs are part of that pool. See Anthropic's [Agent SDK credit article](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) for the current billing rules.
 >
