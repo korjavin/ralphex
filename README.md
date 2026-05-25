@@ -86,7 +86,7 @@ ralphex will create a branch, execute tasks, commit results, run multi-phase rev
 >
 > 1. Do nothing. Light use may fit inside the included monthly credit. This should also be transparent for users who already run Claude Code through API-key billing, Bedrock, Vertex, Foundry, or another non-subscription provider path.
 > 2. Use a skill-based flow in an interactive Claude Code session. The author's [`umputun/cc-thingz`](https://github.com/umputun/cc-thingz) plugin collection includes the `planning` family (`/planning:make` and `/planning:exec`). That keeps work inside the normal interactive Claude Code flow instead of `claude --print`.
-> 3. Switch the ralphex executor to codex. First-class [`--codex`](#codex-executor-mode) support routes task execution, both review phases, and finalize through the codex CLI and skips the external codex review phase.
+> 3. Switch the ralphex executor to codex. First-class [`--codex`](#codex-executor-mode) support routes plan creation, task execution, both review phases, and finalize through the codex CLI and skips the external codex review phase.
 > 4. Use a `claude -p` compatible wrapper that drives an interactive Claude Code session and emits Claude-compatible `stream-json`. Examples that match ralphex's invocation shape include [`umputun/fya`](https://github.com/umputun/fya), [`melonamin/agentrun`](https://github.com/melonamin/agentrun), [`Equality-Machine/claude-p`](https://github.com/Equality-Machine/claude-p), and [`kcosr/claude-pty-wrapper`](https://github.com/kcosr/claude-pty-wrapper). These wrappers are unofficial and may break if Anthropic changes or blocks this pattern.
 
 <details markdown>
@@ -254,11 +254,14 @@ ralphex --external-only docs/plans/feature.md
 
 ### Codex Executor Mode
 
-The `--codex` flag routes task execution, both review phases, and the optional finalize step through the codex CLI instead of Claude Code. The external review phase is automatically skipped because codex-reviewing-codex is a same-model self-review with weak signal; the cross-model independence between Claude and codex was the original reason that phase existed.
+The `--codex` flag routes interactive plan creation (`--plan`), task execution, both review phases, and the optional finalize step through the codex CLI instead of Claude Code. The external review phase is automatically skipped because codex-reviewing-codex is a same-model self-review with weak signal; the cross-model independence between Claude and codex was the original reason that phase existed.
 
 **Why this exists:** in June 2026 Anthropic split the Claude Max subscription from the Claude Agent SDK, putting unattended ralphex runs on a separate $200 credit pool rather than the Max plan. Users with an OpenAI/codex plan can switch the entire ralphex pipeline to codex with one flag and stay on their existing OpenAI subscription instead.
 
 ```bash
+# create a plan through codex
+ralphex --codex --plan "add user authentication"
+
 # run the full pipeline (task, first review, second review, finalize) through codex
 ralphex --codex docs/plans/feature.md
 
@@ -266,7 +269,7 @@ ralphex --codex docs/plans/feature.md
 ralphex --codex --pass-claude-md docs/plans/feature.md
 ```
 
-**How it differs from `codex-as-claude.sh`:** the `--codex` flag is the native codex path. It calls the codex CLI directly and configures multi-agent reviews through additive `-c` flag overrides on the codex command line. Review prompts are shared with claude — the `{{agent:<name>}}` expansion produces `spawn_agent` calls for codex and Task-tool calls for claude at runtime. The `scripts/codex-as-claude/codex-as-claude.sh` wrapper still exists for backwards compatibility — it translates codex JSONL output into Claude stream-json events, which adds overhead and keeps Claude-flavored prompt vocabulary in front of a codex model.
+**How it differs from `codex-as-claude.sh`:** the `--codex` flag is the native codex path. It calls the codex CLI directly and configures multi-agent reviews through additive `-c` flag overrides on the codex command line. Review prompts are shared with claude. The `{{agent:<name>}}` expansion produces `spawn_agent` calls for codex and Task-tool calls for claude at runtime. The `scripts/codex-as-claude/codex-as-claude.sh` wrapper still exists for backwards compatibility. It translates codex JSONL output into Claude stream-json events, which adds overhead and keeps Claude-flavored prompt vocabulary in front of a codex model.
 
 **Project CLAUDE.md passthrough (`--pass-claude-md`):** adds `-c project_doc_fallback_filenames=["CLAUDE.md"]` to the codex invocation so codex's native AGENTS.md walk picks up the project-level `./CLAUDE.md` file. This works for project-level CLAUDE.md only. For user-level `~/.claude/CLAUDE.md`, ralphex never modifies the user's `~/.codex/` directory. If `~/.claude/CLAUDE.md` exists and `~/.codex/AGENTS.md` does not, ralphex prints a one-time hint suggesting `ln -s ~/.claude/CLAUDE.md ~/.codex/AGENTS.md` and continues; the user opts in by running the command themselves.
 
@@ -281,9 +284,9 @@ When `executor = codex` is set in config and the user has also set `external_rev
 
 **Mutual exclusion:** the codex executor (whether enabled via `--codex` or `executor = codex` in config) cannot be combined with `--external-only` (alias `-e`), `--codex-only` (alias `-c`), or `--external-review-tool=<X>` where `<X>` is not `none`. `--pass-claude-md` requires the codex executor (CLI `--codex` or config `executor = codex`). Each combination fails with a clear error message at startup.
 
-**Requirements:** `--codex` requires the codex CLI version 0.130.0 or newer. The mode relies on `[features] multi_agent`, `[agents.<name>]` agent registration, and (with `--pass-claude-md`) `project_doc_fallback_filenames`, all supported in 0.130.0. Older codex versions silently ignore unknown `-c` overrides, so a misconfigured run will not error visibly — it will simply behave as if the overrides were absent. There is no runtime version check; verify your codex version with `codex --version` if behavior is unexpected.
+**Requirements:** `--codex` requires the codex CLI version 0.130.0 or newer. The mode relies on `[features] multi_agent`, `[agents.<name>]` agent registration, and (with `--pass-claude-md`) `project_doc_fallback_filenames`, all supported in 0.130.0. Older codex versions silently ignore unknown `-c` overrides, so a misconfigured run will not error visibly. It will simply behave as if the overrides were absent. There is no runtime version check; verify your codex version with `codex --version` if behavior is unexpected.
 
-**Model selection under `--codex`:** under `--codex` the `--task-model` / `--review-model` flags (and their config equivalents `task_model` / `review_model`) select the model and effort per phase. `--task-model` sets the task phase; `--review-model` sets the review phase and falls back to `--task-model` when unset. Codex builds a separate review executor when the resolved review model/effort differs from task, so tasks and reviews can run on different codex models. Each `model[:effort]` spec is resolved against `codex_model` / `codex_reasoning_effort` (default `gpt-5.5` / `xhigh`): an unset spec inherits those defaults, and each populated half overrides its default (`--task-model=:high` changes effort only). The `max` effort level is claude-only — a spec requesting it under `--codex` is warned about and ignored. So codex model selection is: `--task-model` / `--review-model` (CLI or config), then `codex_model` / `codex_reasoning_effort` in ralphex config, applied as `-c` overrides to the codex CLI; set either codex value to empty (e.g. `codex_model =`) in your user config to inherit that field from `~/.codex/config.toml` instead. Commenting the line out keeps the embedded default. The startup banner under `--codex` shows the resolved task model/effort, plus a separate `review model` / `review reasoning effort` line when the review phase resolves differently.
+**Model selection under `--codex`:** under `--codex` the `--task-model` / `--review-model` flags (and their config equivalents `task_model` / `review_model`) select the model and effort per phase. `--task-model` sets plan creation and the task phase; `--review-model` sets the review phase and falls back to `--task-model` when unset. Codex builds a separate review executor when the resolved review model/effort differs from task, so tasks and reviews can run on different codex models. Each `model[:effort]` spec is resolved against `codex_model` / `codex_reasoning_effort` (default `gpt-5.5` / `xhigh`): an unset spec inherits those defaults, and each populated half overrides its default (`--task-model=:high` changes effort only). The `max` effort level is claude-only. A spec requesting it under `--codex` is warned about and ignored. So codex model selection is: `--task-model` / `--review-model` (CLI or config), then `codex_model` / `codex_reasoning_effort` in ralphex config, applied as `-c` overrides to the codex CLI; set either codex value to empty (e.g. `codex_model =`) in your user config to inherit that field from `~/.codex/config.toml` instead. Commenting the line out keeps the embedded default. The startup banner under `--codex` shows the resolved task model/effort, plus a separate `review model` / `review reasoning effort` line when the review phase resolves differently.
 
 ### Worktree Isolation
 
@@ -682,12 +685,12 @@ ralphex --serve --port=3000 docs/plans/feature.md
 | `-r, --review` | Skip task execution, run full review pipeline | false |
 | `-e, --external-only` | Skip tasks and first review, run only external review loop | false |
 | `-c, --codex-only` | Alias for `--external-only` (deprecated) | false |
-| `--codex` | Use codex CLI as the executor for task, review, and finalize phases. Skips the external review phase (codex-reviewing-codex is a same-model self-review with weak signal). Requires codex CLI ≥ 0.130.0 | false |
+| `--codex` | Use codex CLI as the executor for plan creation, task, review, and finalize phases. Skips the external review phase (codex-reviewing-codex is a same-model self-review with weak signal). Requires codex CLI ≥ 0.130.0 | false |
 | `--pass-claude-md` | Pass project `CLAUDE.md` to codex via `-c project_doc_fallback_filenames=["CLAUDE.md"]`. User-level `~/.claude/CLAUDE.md` is NOT auto-passed (a one-time setup hint is shown). Requires the codex executor (`--codex` or `executor = codex`) | false |
 | `-t, --tasks-only` | Run only task phase, skip all reviews | false |
 | `-b, --base-ref` | Override default branch for review diffs (branch name or commit hash) | auto-detect |
 | `--skip-finalize` | Skip finalize step even if enabled in config | false |
-| `--task-model` | Model for task execution as `model[:effort]` (e.g., `opus`, `opus:high`, `:medium`). Effort values: `low`, `medium`, `high`, `xhigh`, `max`. Appended as `--model <m>` and/or `--effort <e>` to `claude_command`; custom wrappers may ignore or implement the flags. Under `--codex`, selects the codex task-phase model/effort instead (see *Model selection under `--codex`*) | empty |
+| `--task-model` | Model for task execution as `model[:effort]` (e.g., `opus`, `opus:high`, `:medium`). Effort values: `low`, `medium`, `high`, `xhigh`, `max`. Appended as `--model <m>` and/or `--effort <e>` to `claude_command`; custom wrappers may ignore or implement the flags. Under `--codex`, selects the codex plan-creation and task-phase model/effort instead (see *Model selection under `--codex`*) | empty |
 | `--review-model` | Model for review phases as `model[:effort]` (falls back to `--task-model`). Same syntax and wrapper behavior as `--task-model`. Under `--codex`, selects the codex review-phase model/effort | empty |
 | `--claude-command` | Override the Claude-compatible command for this run | config/default |
 | `--claude-args` | Override Claude-compatible command arguments for this run. Use `--claude-args=` to clear configured/default args | config/default |
@@ -926,9 +929,9 @@ Provider-related CLI flags (`--claude-command`, `--claude-args`, `--external-rev
 |--------|-------------|---------|
 | `claude_command` | Claude CLI command | `claude` |
 | `claude_args` | Claude CLI arguments | `--dangerously-skip-permissions --output-format stream-json --verbose` |
-| `executor` | Executor for task, review, and finalize phases. `""` (default) uses Claude Code; `codex` routes the full pipeline through the codex CLI and skips the external review phase. CLI flag `--codex` takes precedence | empty |
+| `executor` | Executor for plan creation, task, review, and finalize phases. `""` (default) uses Claude Code; `codex` routes the full pipeline through the codex CLI and skips the external review phase. CLI flag `--codex` takes precedence | empty |
 | `pass_claude_md` | When `executor = codex`, pass project `CLAUDE.md` to codex as `AGENTS.md` via `-c project_doc_fallback_filenames=["CLAUDE.md"]`. CLI flag `--pass-claude-md` takes precedence | `false` |
-| `task_model` | Model for task execution as `model[:effort]` (e.g., `opus`, `opus:high`, `:medium`). Effort: `low`, `medium`, `high`, `xhigh`, `max`. Appended as `--model <m>` and/or `--effort <e>` to `claude_command`; custom wrappers may ignore or implement the flags. Under `--codex`, selects the codex task-phase model/effort instead (see *Model selection under `--codex`*) | empty |
+| `task_model` | Model for task execution as `model[:effort]` (e.g., `opus`, `opus:high`, `:medium`). Effort: `low`, `medium`, `high`, `xhigh`, `max`. Appended as `--model <m>` and/or `--effort <e>` to `claude_command`; custom wrappers may ignore or implement the flags. Under `--codex`, selects the codex plan-creation and task-phase model/effort instead (see *Model selection under `--codex`*) | empty |
 | `review_model` | Model for review phases as `model[:effort]`. Falls back to `task_model` if empty. Same syntax and wrapper behavior as `task_model`. Under `--codex`, selects the codex review-phase model/effort | empty |
 | `codex_enabled` | Enable codex review phase | `true` |
 | `codex_command` | Codex CLI command | `codex` |
