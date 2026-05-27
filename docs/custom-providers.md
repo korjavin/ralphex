@@ -284,7 +284,44 @@ fixed the bug
 
 # wrapper translates to:
 {"type":"content_block_delta","delta":{"type":"text_delta","text":"fixed the bug\n"}}
+
+## Antigravity (agy) CLI wrapper (included example)
+
+The repository includes a wrapper at `scripts/agy-as-claude/agy-as-claude.sh` that translates the `agy` (Antigravity) CLI plain-text output to Claude stream-json format.
+
+### Setup
+
+```ini
+# in ~/.config/ralphex/config or .ralphex/config
+claude_command = /path/to/scripts/agy-as-claude/agy-as-claude.sh
 ```
+
+### Unattended execution
+
+The wrapper invokes `agy` with `--dangerously-skip-permissions` to auto-approve tool and command permissions, ensuring the task and review phases can run autonomously without prompts.
+
+### Environment isolation
+
+To prevent deadlocks when running `agy` as a sub-process within an active Antigravity agent process, the wrapper automatically unsets the following environment variables before calling `agy`:
+- `ANTIGRAVITY_AGENT`
+- `ANTIGRAVITY_TRAJECTORY_ID`
+- `ANTIGRAVITY_LS_ADDRESS`
+- `ANTIGRAVITY_CSRF_TOKEN`
+- `ANTIGRAVITY_PROJECT_ID`
+
+### How it works
+
+Since `agy` outputs plain text when run non-interactively, the script wraps each line in a `content_block_delta` JSON event.
+
+```bash
+# agy emits text like:
+fixed the bug
+
+# wrapper translates to:
+{"type":"content_block_delta","delta":{"type":"text_delta","text":"fixed the bug\n"}}
+```
+
+For review prompts (detected by `<<<RALPHEX:REVIEW_DONE>>>` in the prompt text), the wrapper prepends sequential instructions to run the review flow sequentially rather than attempting parallel execution.
 
 ## Writing your own wrapper
 
