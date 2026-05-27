@@ -502,6 +502,78 @@ fi
 create_mock_agy > /dev/null
 
 # ---------------------------------------------------------------------------
+# test: --print-timeout passed to agy (prevents 5m default from killing sessions)
+# ---------------------------------------------------------------------------
+echo "test: --print-timeout passed to agy"
+
+# create arg-recording mock for this test
+cat > "$TMPDIR_TEST/agy" << 'TIMEOUT_MOCK_EOF'
+#!/usr/bin/env bash
+# record all args to a file for inspection
+printf '%s\n' "$@" > "$TMPDIR_TEST/captured_args"
+if [[ -n "${MOCK_STDOUT_FILE:-}" && -f "$MOCK_STDOUT_FILE" ]]; then
+    cat "$MOCK_STDOUT_FILE"
+fi
+exit 0
+TIMEOUT_MOCK_EOF
+chmod +x "$TMPDIR_TEST/agy"
+
+rm -f "$TMPDIR_TEST/captured_args"
+MOCK_STDOUT_FILE="$TMPDIR_TEST/minimal_events.txt" \
+    PATH="$TMPDIR_TEST:$PATH" TMPDIR_TEST="$TMPDIR_TEST" \
+    bash "$WRAPPER" -p "test prompt" < /dev/null >/dev/null 2>&1
+
+if [[ -f "$TMPDIR_TEST/captured_args" ]]; then
+    captured=$(cat "$TMPDIR_TEST/captured_args")
+    if echo "$captured" | grep -q '^--print-timeout$'; then
+        pass "--print-timeout flag passed to agy"
+    else
+        fail "--print-timeout flag not passed to agy" "args: $captured"
+    fi
+else
+    fail "could not capture args sent to agy"
+fi
+
+# test: AGY_PRINT_TIMEOUT env var is honored
+rm -f "$TMPDIR_TEST/captured_args"
+MOCK_STDOUT_FILE="$TMPDIR_TEST/minimal_events.txt" \
+    AGY_PRINT_TIMEOUT="30m" \
+    PATH="$TMPDIR_TEST:$PATH" TMPDIR_TEST="$TMPDIR_TEST" \
+    bash "$WRAPPER" -p "test prompt" < /dev/null >/dev/null 2>&1
+
+if [[ -f "$TMPDIR_TEST/captured_args" ]]; then
+    captured=$(cat "$TMPDIR_TEST/captured_args")
+    if echo "$captured" | grep -q '^30m$'; then
+        pass "AGY_PRINT_TIMEOUT env var honored"
+    else
+        fail "AGY_PRINT_TIMEOUT env var not used" "args: $captured"
+    fi
+else
+    fail "could not capture args for AGY_PRINT_TIMEOUT test"
+fi
+
+# test: default is 2h when AGY_PRINT_TIMEOUT not set
+rm -f "$TMPDIR_TEST/captured_args"
+unset AGY_PRINT_TIMEOUT 2>/dev/null || true
+MOCK_STDOUT_FILE="$TMPDIR_TEST/minimal_events.txt" \
+    PATH="$TMPDIR_TEST:$PATH" TMPDIR_TEST="$TMPDIR_TEST" \
+    bash "$WRAPPER" -p "test prompt" < /dev/null >/dev/null 2>&1
+
+if [[ -f "$TMPDIR_TEST/captured_args" ]]; then
+    captured=$(cat "$TMPDIR_TEST/captured_args")
+    if echo "$captured" | grep -q '^2h$'; then
+        pass "default AGY_PRINT_TIMEOUT is 2h"
+    else
+        fail "default AGY_PRINT_TIMEOUT is not 2h" "args: $captured"
+    fi
+else
+    fail "could not capture args for default timeout test"
+fi
+
+# restore standard mock
+create_mock_agy > /dev/null
+
+# ---------------------------------------------------------------------------
 # test: agy not found exits with error
 # ---------------------------------------------------------------------------
 echo "test: agy not found"

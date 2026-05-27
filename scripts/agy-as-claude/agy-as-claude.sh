@@ -9,6 +9,10 @@
 #   claude_command = /path/to/agy-as-claude.sh
 #   claude_args =
 #
+# environment variables:
+#   AGY_PRINT_TIMEOUT    - print mode timeout passed to agy (default 2h). The agy CLI
+#                          defaults to 5m which is too short for ralphex task/review phases.
+#
 
 set -euo pipefail
 
@@ -53,8 +57,11 @@ if [[ "$is_review_prompt" == "1" ]]; then
     prompt="$adapter_text"$'\n\n'"$prompt"
 fi
 
+# configurable via environment; agy's default 5m is too short for ralphex sessions
+AGY_PRINT_TIMEOUT="${AGY_PRINT_TIMEOUT:-2h}"
+
 # build agy arguments. We use --dangerously-skip-permissions to run unattended.
-agy_args=("--dangerously-skip-permissions" "-p" "$prompt")
+agy_args=("--dangerously-skip-permissions" "--print-timeout" "${AGY_PRINT_TIMEOUT}" "-p" "$prompt")
 
 # temporary files for stderr capture and stdout piping.
 tmp_dir=$(mktemp -d)

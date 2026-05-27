@@ -284,6 +284,7 @@ fixed the bug
 
 # wrapper translates to:
 {"type":"content_block_delta","delta":{"type":"text_delta","text":"fixed the bug\n"}}
+```
 
 ## Antigravity (agy) CLI wrapper (included example)
 
@@ -299,6 +300,12 @@ claude_command = /path/to/scripts/agy-as-claude/agy-as-claude.sh
 ### Unattended execution
 
 The wrapper invokes `agy` with `--dangerously-skip-permissions` to auto-approve tool and command permissions, ensuring the task and review phases can run autonomously without prompts.
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGY_PRINT_TIMEOUT` | `2h` | Print mode timeout passed to `agy`. The `agy` CLI defaults to `5m` which is shorter than typical ralphex task/review sessions. Override if you need a different limit. |
 
 ### Environment isolation
 
